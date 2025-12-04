@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Validate · {{ site_name or 'Flux Licensing' }}{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+  <div class="p-6 rounded-2xl bg-slate-900/70 border border-slate-800 shadow">
+    <h1 class="text-2xl font-semibold">Validate a License</h1>
+    <p class="text-slate-400 text-sm mt-1">Check a key against this server.</p>
+
+    <form id="valForm" onsubmit="return doValidate(event)" class="space-y-4 mt-5">
+      <div>
+        <label class="text-sm">License Key</label>
+        <input required type="text" name="key" placeholder="FLUX-XXXXX-XXXXX-XXXXX-XXXXX"
+               class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-blue-600">
+      </div>
+      <div>
+        <label class="text-sm">Machine ID</label>
+        <input required type="text" name="machine_id" placeholder="Unique device id"
+               class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-blue-600">
+      </div>
+      <button class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500">Validate</button>
+    </form>
+
+    <pre id="valOut" class="mt-5 p-4 rounded-xl bg-slate-950/80 border border-slate-800 overflow-x-auto text-sm"></pre>
+  </div>
+</div>
+
+<script>
+async function doValidate(e){
+  e.preventDefault();
+  const form = e.target;
+  const payload = {
+    key: form.key.value.trim(),
+    machine_id: form.machine_id.value.trim()
+  };
+  const res = await fetch('/api/validate', {
+    method:'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const j = await res.json();
+  document.getElementById('valOut').textContent = JSON.stringify(j, null, 2);
+}
+</script>
+{% endblock %}

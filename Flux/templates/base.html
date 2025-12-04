@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{{ site_name or 'Flux Licensing' }}{% endblock %}</title>
+    <meta name="color-scheme" content="dark" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body::before{
+        content:"";position:fixed;inset:0;pointer-events:none;opacity:.35;
+        background:
+          radial-gradient(60vw 60vw at -10% -10%, rgba(168,85,247,.20), transparent 60%),
+          radial-gradient(50vw 50vw at 110% 10%, rgba(59,130,246,.15), transparent 60%),
+          radial-gradient(40vw 40vw at 50% 110%, rgba(34,197,94,.10), transparent 60%);
+        filter: blur(40px);
+      }
+      .container-w { max-width: 1200px; }
+    </style>
+  </head>
+  <body class="h-full bg-slate-950 text-slate-100">
+    <div class="min-h-screen">
+      <!-- Header -->
+      <header class="border-b border-slate-800/70 bg-slate-900/70 backdrop-blur">
+        <div class="container-w mx-auto px-4 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="{{ url_for('static', filename='logo.png') }}" onerror="this.style.display='none'"
+                 alt="Logo" class="h-8 w-8 rounded-lg object-contain bg-slate-800/50" />
+            <div>
+              <div class="font-semibold tracking-wide">{{ site_name or 'Flux Licensing' }}</div>
+              <div class="text-xs text-slate-400 -mt-0.5">Local license manager</div>
+            </div>
+          </div>
+          <button id="toggleSidebar" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Menu</button>
+        </div>
+      </header>
+
+      <div class="container-w mx-auto grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 px-4 py-6">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+               class="md:sticky md:top-4 h-max p-4 rounded-2xl bg-slate-900/70 border border-slate-800 shadow hidden md:block">
+          <nav class="text-sm space-y-1">
+            <a href="/dashboard" class="block px-3 py-2 rounded hover:bg-slate-800">Dashboard</a>
+            <a href="/validate"  class="block px-3 py-2 rounded hover:bg-slate-800">Validate</a>
+            <a href="/settings"  class="block px-3 py-2 rounded hover:bg-slate-800">Settings</a>
+            {% if session.user %}
+            <a href="/logout"    class="block px-3 py-2 rounded bg-rose-600/80 hover:bg-rose-500">Logout</a>
+            {% else %}
+            <a href="/login"     class="block px-3 py-2 rounded bg-fuchsia-600/80 hover:bg-fuchsia-500">Login</a>
+            {% endif %}
+          </nav>
+        </aside>
+
+        <!-- Content -->
+        <main class="min-w-0">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              <div class="space-y-2 mb-4">
+                {% for category, msg in messages %}
+                  <div class="p-3 rounded-xl bg-amber-900/30 border border-amber-700/60 text-amber-100">
+                    {{ msg }}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
+
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+
+      <footer class="container-w mx-auto px-4 pb-8 text-xs text-slate-400">
+        <div class="flex items-center justify-between">
+          <span>© 2025 {{ site_name or 'Flux' }}. All rights reserved.</span>
+          <span class="hidden sm:inline">SQLite · Flask · Localhost</span>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      document.getElementById('toggleSidebar')?.addEventListener('click', ()=>{
+        const el = document.getElementById('sidebar');
+        if(!el) return;
+        el.classList.toggle('hidden');
+      });
+    </script>
+  </body>
+</html>
