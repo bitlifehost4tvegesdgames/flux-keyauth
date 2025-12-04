@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · {{ site_name or 'Flux Licensing' }}{% endblock %}
+{% block content %}
+<section class="grid md:grid-cols-2 gap-6">
+  <div class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow">
+    <h2 class="text-xl font-semibold">Create License</h2>
+    <p class="text-slate-400 text-sm mt-1">Expiry, activation limit, and optional note.</p>
+    <form id="createForm" class="grid grid-cols-2 gap-3 mt-4">
+      <div class="col-span-2">
+        <label class="text-sm">Expires in (days)</label>
+        <input type="number" min="0" placeholder="0 = never" name="days"
+               class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-blue-600">
+      </div>
+      <div>
+        <label class="text-sm">Max activations</label>
+        <input type="number" min="1" value="1" name="max_activations"
+               class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-blue-600">
+      </div>
+      <div>
+        <label class="text-sm">Notes</label>
+        <input type="text" name="notes" placeholder="customer/email/order"
+               class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-blue-600">
+      </div>
+      <div class="col-span-2">
+        <button type="submit" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500">Generate</button>
+        <span id="createMsg" class="ml-3 text-sm"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow">
+    <h2 class="text-xl font-semibold">How to validate</h2>
+    <ol class="list-decimal ml-5 space-y-1 text-sm text-slate-300 mt-2">
+      <li>POST to <code class="bg-slate-800 px-2 py-1 rounded">/api/validate</code></li>
+      <li>JSON:
+        <code class="bg-slate-800 px-2 py-1 rounded">{"key":"FLUX-...","machine_id":"YOUR-PC-ID"}</code>
+      </li>
+      <li>Or use the public <a class="underline" href="/validate">Validate</a> page.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="mt-8 p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-xl font-semibold">All Keys</h2>
+    <div class="flex items-center gap-2">
+      <button id="refreshBtn" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700">Refresh</button>
+    </div>
+  </div>
+  <div class="overflow-x-auto rounded-xl border border-slate-800">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-900/80 text-slate-300">
+        <tr>
+          <th class="text-left py-2 px-3">Key</th>
+          <th class="text-left py-2 px-3">Created</th>
+          <th class="text-left py-2 px-3">Expires</th>
+          <th class="text-left py-2 px-3">Activations</th>
+          <th class="text-left py-2 px-3">Max</th>
+          <th class="text-left py-2 px-3">Notes</th>
+          <th class="text-left py-2 px-3">Status</th>
+          <th class="text-left py-2 px-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="keysBody" class="divide-y divide-slate-800/70">
+        {% for k in keys %}
+        <tr class="hover:bg-slate-900/40">
+          <td class="py-2 px-3 font-mono">{{ k.lic_key }}</td>
+          <td class="py-2 px-3">{{ k.created_at }}</td>
+          <td class="py-2 px-3">{{ k.expires_at or "—" }}</td>
+          <td class="py-2 px-3">{{ k.activation_count }}</td>
+          <td class="py-2 px-3">{{ k.max_activations }}</td>
+          <td class="py-2 px-3">{{ k.notes or "" }}</td>
+          <td class="py-2 px-3">
+            {% if k.revoked %}
+              <span class="px-2 py-1 rounded bg-rose-600/20 border border-rose-600/60 text-rose-300">Revoked</span>
+            {% else %}
+              <span class="px-2 py-1 rounded bg-emerald-600/20 border border-emerald-600/60 text-emerald-300">Active</span>
+            {% endif %}
+          </td>
+          <td class="py-2 px-3">
+            <button type="button" class="px-2 py-1 rounded bg-slate-700 hover:bg-amber-500 hover:text-black transition"
+                    data-action="revoke" data-id="{{ k.id }}">Revoke</button>
+            <button type="button" class="ml-2 px-2 py-1 rounded bg-slate-700 hover:bg-rose-500 hover:text-black transition"
+                    data-action="delete" data-id="{{ k.id }}">Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+(function(){
+  const createForm = document.getElementById('createForm');
+  const createMsg = document.getElementById('createMsg');
+  const keysBody  = document.getElementById('keysBody');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  if (createForm) {
+    createForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(createForm);
+      const res = await fetch('/api/create_key', { method: 'POST', body: data });
+      let j = {};
+      try { j = await res.json(); } catch(e){}
+      if (j.ok) {
+        createMsg.textContent = 'Created: ' + j.key;
+        createMsg.className = 'ml-3 text-emerald-400';
+        createForm.reset();
+        await refreshKeys();
+      } else {
+        createMsg.textContent = (j && j.error) ? j.error : 'Error';
+        createMsg.className = 'ml-3 text-rose-400';
+      }
+    });
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+    if (!id) return;
+
+    if (action === 'revoke') {
+      if (!confirm('Revoke this key?')) return;
+      await fetch('/api/revoke/' + encodeURIComponent(id), { method: 'POST' });
+      await refreshKeys();
+    }
+    if (action === 'delete') {
+      if (!confirm('Delete this key permanently?')) return;
+      await fetch('/api/delete/' + encodeURIComponent(id), { method: 'POST' });
+      await refreshKeys();
+    }
+  });
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      refreshKeys();
+    });
+  }
+
+  async function refreshKeys(){
+    const res = await fetch('/api/keys');
+    let j = {};
+    try { j = await res.json(); } catch(e){}
+    if (!j.ok || !Array.isArray(j.items)) return;
+
+    keysBody.innerHTML = '';
+    j.items.forEach(k => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-900/40';
+      tr.innerHTML = `
+        <td class="py-2 px-3 font-mono">${k.lic_key}</td>
+        <td class="py-2 px-3">${k.created_at}</td>
+        <td class="py-2 px-3">${k.expires_at || '—'}</td>
+        <td class="py-2 px-3">${k.activation_count}</td>
+        <td class="py-2 px-3">${k.max_activations}</td>
+        <td class="py-2 px-3">${k.notes || ''}</td>
+        <td class="py-2 px-3">${k.revoked
+          ? '<span class="px-2 py-1 rounded bg-rose-600/20 border border-rose-600/60 text-rose-300">Revoked</span>'
+          : '<span class="px-2 py-1 rounded bg-emerald-600/20 border border-emerald-600/60 text-emerald-300">Active</span>'}</td>
+        <td class="py-2 px-3">
+          <button type="button" class="px-2 py-1 rounded bg-slate-700 hover:bg-amber-500 hover:text-black transition"
+                  data-action="revoke" data-id="${k.id}">Revoke</button>
+          <button type="button" class="ml-2 px-2 py-1 rounded bg-slate-700 hover:bg-rose-500 hover:text-black transition"
+                  data-action="delete" data-id="${k.id}">Delete</button>
+        </td>`;
+      keysBody.appendChild(tr);
+    });
+  }
+})();
+</script>
+{% endblock %}
